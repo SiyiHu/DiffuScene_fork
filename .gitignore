@@ -1,0 +1,18 @@
+# virtual env
+venv_*/
+
+# IDE
+.vscode/*
+
+# build files
+build/*
+*.egg-info
+*.egg
+*.o
+*.so
+*__pycache__*
+
+# output dir
+output/*
+scripts/wandb/*
+wandb/*
