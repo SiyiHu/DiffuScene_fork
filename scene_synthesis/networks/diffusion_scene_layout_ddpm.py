@@ -310,14 +310,14 @@ class DiffusionSceneLayout_DDPM(Module):
         return samples
 
     @torch.no_grad()
-    def generate_layout(self, room_mask, num_points, point_dim, batch_size=1, text=None, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, device="cpu", keep_empty=False):
+    def generate_layout(self, room_mask, num_points, point_dim, batch_size=1, text=None, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, out_device="cpu"):
         
         samples = self.sample(room_mask, num_points, point_dim, batch_size, text=text, ret_traj=ret_traj, ddim=ddim, clip_denoised=clip_denoised, batch_seeds=batch_seeds)
         
-        return self.delete_empty_from_network_samples(samples, device=device, keep_empty=keep_empty)
+        return self.delete_empty_from_network_samples(samples, out_device)
 
     @torch.no_grad()
-    def generate_layout_progressive(self, room_mask, num_points, point_dim, batch_size=1, text=None, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, device="cpu", keep_empty=False, num_step=100):
+    def generate_layout_progressive(self, room_mask, num_points, point_dim, batch_size=1, text=None, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, out_device="cpu", num_step=100):
         
         # output dictionary of sample trajectory & sample some key steps
         samples_traj = self.sample(room_mask, num_points, point_dim, batch_size, text=text, ret_traj=ret_traj, ddim=ddim, clip_denoised=clip_denoised, batch_seeds=batch_seeds, freq=num_step)
@@ -329,7 +329,7 @@ class DiffusionSceneLayout_DDPM(Module):
         for i in range(len(samples_traj)):
             samples = samples_traj[i]
             k_time = num_step * i
-            boxes_traj[k_time] = self.delete_empty_from_network_samples(samples, device=device, keep_empty=keep_empty)
+            boxes_traj[k_time] = self.delete_empty_from_network_samples(samples, out_device)
         return boxes_traj
     
     @torch.no_grad()
@@ -345,66 +345,62 @@ class DiffusionSceneLayout_DDPM(Module):
         samples = self.sample(room_mask, num_points, point_dim, batch_size, input_boxes=input_boxes, ret_traj=ret_traj, ddim=ddim, clip_denoised=clip_denoised, batch_seeds=batch_seeds)
 
         return self.delete_empty_from_network_samples(samples, device=device, keep_empty=keep_empty)
-    
-    
 
     @torch.no_grad()
-    def delete_empty_from_network_samples(self, samples, device="cpu", keep_empty=False):
-        
+    def delete_empty_from_network_samples(self, samples, device="cpu"):
+        """Remove objects with 'empty' label given samples of [B, N, C] 
+        dimensions. The output is a list of dictionaries with features 
+        of [0, N_i, ?] dimensions for each object feature."""
+        # Separate features to dictionaries
+        object_max, object_max_ind = torch.max(
+            samples[:, :, self.bbox_dim:self.bbox_dim+self.n_classes-2], 
+            dim=-1
+        )
         samples_dict = {
             "translations": samples[:, :, 0:self.translation_dim].contiguous(),
-            "sizes": samples[:, :,  self.translation_dim:self.translation_dim+self.size_dim].contiguous(),
-            "angles": samples[:, :, self.translation_dim+self.size_dim:self.bbox_dim].contiguous(),
-            "class_labels": nn.functional.one_hot( torch.argmax(samples[:, :, self.bbox_dim:self.bbox_dim+self.class_dim-1].contiguous(), dim=-1), \
-                            num_classes=self.n_classes-2),
-            "objectness": samples[:, :, self.bbox_dim+self.class_dim-1:self.bbox_dim+self.class_dim]>=0,
+            "sizes": samples[:, :,  self.translation_dim:self.translation_dim+
+                             self.size_dim].contiguous(),
+            "angles": samples[:, :, self.translation_dim+self.size_dim:
+                              self.bbox_dim].contiguous(),
+            "class_labels": nn.functional.one_hot(
+                object_max_ind, num_classes=self.n_classes-2
+            ),
+            "is_empty": samples[:, :, self.bbox_dim+self.class_dim-1] > object_max,
         }
         if self.objfeat_dim > 0:
-            samples_dict["objfeats"] = samples[:, :, self.bbox_dim+self.class_dim:self.bbox_dim+self.class_dim+self.objfeat_dim]
+            samples_dict["objfeats"] = \
+                samples[:, :, self.bbox_dim+self.class_dim:self.bbox_dim+
+                        self.class_dim+self.objfeat_dim]
 
-        #initilization
-        boxes = {
-            "objectness": torch.zeros(1, 0, 1, device=device),
-            "class_labels": torch.zeros(1, 0, self.n_classes-2, device=device),
-            "translations": torch.zeros(1, 0, self.translation_dim, device=device),
-            "sizes": torch.zeros(1, 0, self.size_dim, device=device),
-            "angles": torch.zeros(1, 0, self.angle_dim, device=device)
-        }
-        if self.objfeat_dim > 0:
-            boxes["objfeats"] =  torch.zeros(1, 0, self.objfeat_dim, device=device)
-    
-        max_boxes = samples.shape[1]
-        for i in range(max_boxes):
-            # Check if we have the end symbol 
-            if not keep_empty and samples_dict['objectness'][0, i, -1] > 0:
-                continue
-            else:
-                for k in samples_dict.keys():
-                    if k == "class_labels":
-                        # we output raw probability maps for visualization
-                        boxes[k] = torch.cat([ boxes[k], samples[:, i:i+1, self.bbox_dim:self.bbox_dim+self.class_dim-1].to(device) ], dim=1)
-                        boxes["objectness"] = torch.cat([ boxes["objectness"], samples[:, i:i+1, self.bbox_dim+self.class_dim-1:self.bbox_dim+self.class_dim].to(device) ], dim=1)
-                    else:
-                        boxes[k] = torch.cat([ boxes[k], samples_dict[k][:, i:i+1, :].to(device) ], dim=1)
-
-        if self.objfeat_dim > 0:
-            return {
-            "class_labels": boxes["class_labels"].to("cpu"),
-            #"objectness": boxes["objectness"].to("cpu"),
-            "translations": boxes["translations"].to("cpu"),
-            "sizes": boxes["sizes"].to("cpu"),
-            "angles": boxes["angles"].to("cpu"),
-            "objfeats": boxes["objfeats"].to("cpu"),
-        }
-        else:
-            return {
-                "class_labels": boxes["class_labels"].to("cpu"),
-                #"objectness": boxes["objectness"].to("cpu"),
-                "translations": boxes["translations"].to("cpu"),
-                "sizes": boxes["sizes"].to("cpu"),
-                "angles": boxes["angles"].to("cpu")
+        # Loop through each batch (i.e. layout), collect features for non-empty objects
+        batch_size, max_boxes, _ = samples.shape
+        return_properties = [p for p in samples_dict.keys() if p != "is_empty"]        
+        boxes_list = []
+        for b in range(batch_size):
+            # Initialize empty dict
+            boxes = {
+                "class_labels": torch.zeros(1, 0, self.n_classes-2).to(device),
+                "translations": torch.zeros(1, 0, self.translation_dim).to(device),
+                "sizes": torch.zeros(1, 0, self.size_dim).to(device),
+                "angles": torch.zeros(1, 0, self.angle_dim).to(device)
             }
+            if self.objfeat_dim > 0:
+                boxes["objfeats"] = torch.zeros(1, 0, self.objfeat_dim).to(device)
+            
+            for i in range(max_boxes):
+                # Check if we have the end symbol
+                if samples_dict["is_empty"][b, i]:
+                    continue
+                else:
+                    for k in return_properties:
+                        boxes[k] = torch.cat([
+                            boxes[k], 
+                            samples_dict[k][b:b+1, i:i+1, :].to(device)
+                        ], dim=1)
+            
+            boxes_list.append(boxes)
 
+        return boxes_list
 
     @torch.no_grad()
     def delete_empty_boxes(self, samples_dict, device="cpu", keep_empty=False):

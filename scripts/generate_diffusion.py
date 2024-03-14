@@ -317,10 +317,9 @@ def main(argv):
                 point_dim=config["network"]["point_dim"],
                 #text=torch.from_numpy(samples['desc_emb'])[None, :].to(device) if 'desc_emb' in samples.keys() else None, # glove embedding
                 text=samples['description'] if 'description' in samples.keys() else None,  # bert 
-                device=device,
                 clip_denoised=args.clip_denoised,
                 batch_seeds=torch.arange(i, i+1),
-        )
+        )[0]
 
         boxes = dataset.post_process(bbox_params)
         bbox_params_t = torch.cat([
