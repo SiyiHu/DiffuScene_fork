@@ -149,6 +149,12 @@ def main(argv):
         help="if remove the texture"
     )
     parser.add_argument(
+        "--room_side",
+        type=float,
+        default=3.1,
+        help="field of view bound for orthogonal projection"
+    )
+    parser.add_argument(
         "--save_mesh",
         action="store_true",
         help="if save mesh"
@@ -258,8 +264,8 @@ def main(argv):
         scene_top2down.camera_position = (0,4,0)
         scene_top2down.light = (0,4,0)
         scene_top2down.camera_matrix = Matrix44.orthogonal_projection(
-            left=-3.1, right=3.1,
-            bottom=3.1, top=-3.1,
+            left=-args.room_side, right=args.room_side,
+            bottom=args.room_side, top=-args.room_side,
             near=0.1, far=6
         )
 
