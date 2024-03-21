@@ -141,8 +141,8 @@ class DiffusionSceneLayout_DDPM(Module):
                 objfeats = sample_params["objfeats_32"]
             else:
                 objfeats = sample_params["objfeats"]
-        room_layout = sample_params["room_layout"]
         batch_size, num_points, _ = class_labels.shape
+        assert num_points == self.sample_num_points
 
         # get desired diffusion target
         if self.config["point_dim"] == self.bbox_dim+self.class_dim+self.objectness_dim+self.objfeat_dim:
@@ -161,6 +161,7 @@ class DiffusionSceneLayout_DDPM(Module):
 
         # get the latent feature of room_mask
         if self.room_mask_condition:
+            room_layout = sample_params["room_layout"]
             room_layout_f = self.fc_room_f(self.feature_extractor(room_layout)) #(B, F)
             
         else:

@@ -886,9 +886,18 @@ class AutoregressiveWOCM(Autoregressive):
         return sample_params
 
 class Diffusion(DatasetDecoratorBase):
+    def __init__(self, dataset, max_length=None):
+        super().__init__(dataset)
+        
+        if max_length is None:
+            self._max_length = dataset.max_length
+        else:
+            assert max_length >= dataset.max_length
+            self._max_length = max_length
+    
     def __getitem__(self, idx):
         sample_params = self._dataset[idx]
-        max_length = self._dataset.max_length
+        max_length = self._max_length
 
         # Add the number of bounding boxes in the scene
         sample_params["length"] = sample_params["class_labels"].shape[0]
@@ -923,6 +932,10 @@ class Diffusion(DatasetDecoratorBase):
         sample_params.update(sample_params_target)
 
         return sample_params
+
+    @property
+    def max_length(self):
+        return self._max_length 
     
     def collate_fn(self, samples):
         ''' Collater that puts each data field into a tensor with outer dimension

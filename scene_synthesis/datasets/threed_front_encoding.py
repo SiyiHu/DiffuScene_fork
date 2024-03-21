@@ -139,10 +139,10 @@ def dataset_encoding_factory(
         if "eval" in name:
             return dataset_collection
         elif "wocm_no_prm" in name:
-            return Diffusion(dataset_collection)
+            return Diffusion(dataset_collection, max_length)
         elif "wocm" in name:
             dataset_collection = Permutation(dataset_collection, feature_keys)
-            return Diffusion(dataset_collection)
+            return Diffusion(dataset_collection, max_length)
         
     # for autoregressive model
     elif "autoregressive" in name:

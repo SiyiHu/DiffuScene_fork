@@ -19,7 +19,8 @@ from torch.utils.data import DataLoader
 
 from training_utils import id_generator, save_experiment_params, load_config, yield_forever, load_checkpoints, save_checkpoints
 
-from scene_synthesis.datasets import get_encoded_dataset, filter_function
+from scene_synthesis.datasets.threed_front_encoding import get_encoded_dataset
+from threed_front.datasets import filter_function
 from scene_synthesis.networks import build_network, optimizer_factory, schedule_factory, adjust_learning_rate
 from scene_synthesis.stats_logger import StatsLogger, WandB
 
@@ -121,8 +122,11 @@ def main(argv):
         ),
         path_to_bounds=None,
         augmentations=config["data"].get("augmentations", None),
-        split=config["training"].get("splits", ["train", "val"])
+        split=config["training"].get("splits", ["train", "val"]),
+        max_length=config["network"]["sample_num_points"],
+        with_room_layout=config["network"]["room_mask_condition"]
     )
+    print(train_dataset.max_length)
     # Compute the bounds for this experiment, save them to a file in the
     # experiment directory and pass them to the validation dataset
     path_to_bounds = os.path.join(experiment_directory, "bounds.npz")
@@ -144,7 +148,9 @@ def main(argv):
         ),
         path_to_bounds=path_to_bounds,
         augmentations=None,
-        split=config["validation"].get("splits", ["test"])
+        split=config["validation"].get("splits", ["test"]),
+        max_length=config["network"]["sample_num_points"],
+        with_room_layout=config["network"]["room_mask_condition"]
     )
 
     train_loader = DataLoader(
