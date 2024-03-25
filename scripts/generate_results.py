@@ -147,7 +147,7 @@ def main(argv):
     # Generate final results
     sampled_indices, layout_list = \
         generate_layouts(network, encoded_dataset, args.n_syn_scenes, config, 
-                         args.clip_denoised, "random", 8, device)
+                         args.clip_denoised, "random", 128, device)
     
     threed_front_results = ThreedFrontResults(
         raw_train_dataset, raw_dataset, config, sampled_indices, layout_list

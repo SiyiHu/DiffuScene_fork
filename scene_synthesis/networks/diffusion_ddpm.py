@@ -199,8 +199,18 @@ class GaussianDiffusion:
         elif model_mean_type == 'x0':
             loss_weight = snr
         elif model_mean_type == 'v':
-            loss_weight = snr / (snr + 1)
+            loss_weight = alphas_cumprod    # snr / (snr + 1)
         self.loss_weight = loss_weight
+    
+    def _move_tensors(self, device):
+        """
+        Move pre-computed parameters to specified device
+        """
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if isinstance(attr, torch.Tensor):
+                setattr(self, attr_name, attr.to(device))
+        self.device = torch.device(device)
 
     @staticmethod
     def _extract(a, t, x_shape):
@@ -496,9 +506,7 @@ class GaussianDiffusion:
                 img_t_trans = img_t[:, :, 0:self.translation_dim]
                 img_t_angle = img_t[:, :, self.translation_dim:] 
                 
-                input_boxes_trans = input_boxes[:, :, 0:self.translation_dim]
                 input_boxes_size  = input_boxes[:, :, self.translation_dim:self.translation_dim+self.size_dim]  
-                input_boxes_angle = input_boxes[:, :, self.translation_dim+self.size_dim:self.bbox_dim] 
                 input_boxes_other = input_boxes[:, :, self.bbox_dim:] 
                 img_t = torch.cat([ img_t_trans, input_boxes_size, img_t_angle, input_boxes_other ], dim=-1).contiguous()
 
@@ -627,14 +635,12 @@ class GaussianDiffusion:
                     bbox_iou = axis_aligned_bbox_overlaps_3d(axis_aligned_bbox_corn, axis_aligned_bbox_corn)
                     bbox_iou_mask = valid_mask[:, :, None] * valid_mask[:, None, :]
                     bbox_iou_valid = bbox_iou * bbox_iou_mask
-                    bbox_iou_valid_avg = bbox_iou_valid.sum( dim=list(range(1, len(bbox_iou_valid.shape))) ) / ( bbox_iou_mask.sum( dim=list(range(1, len(bbox_iou_valid.shape))) ) + 1e-6)
+                    bbox_iou_valid_avg = bbox_iou_valid.sum(dim=[1, 2]) / (bbox_iou_mask.sum(dim=[1, 2]) + 1e-6)
                     # get the iou loss weight w.r.t time
                     w_iou = self._extract(self.alphas_cumprod.to(data_start.device), t, bbox_iou.shape)
-                    loss_iou = (w_iou * 0.1 * bbox_iou).mean(dim=list(range(1, len(w_iou.shape))))
-                    loss_iou_valid_avg = (w_iou * 0.1 * bbox_iou_valid).sum( dim=list(range(1, len(bbox_iou_valid.shape))) ) / ( bbox_iou_mask.sum( dim=list(range(1, len(bbox_iou_valid.shape))) ) + 1e-6)
+                    loss_iou_valid_avg = (w_iou * 0.1 * bbox_iou_valid).sum(dim=[1, 2]) / (bbox_iou_mask.sum(dim=[1, 2]) + 1e-6)
                     losses_weight += loss_iou_valid_avg
                 else:
-                    loss_iou = torch.zeros(B).to(data_start.device)
                     bbox_iou = torch.zeros(B).to(data_start.device)
                     loss_iou_valid_avg = torch.zeros(B).to(data_start.device)
                     bbox_iou_valid_avg = torch.zeros(B).to(data_start.device)
@@ -766,6 +772,9 @@ class DiffusionPoint(nn.Module):
         if noises is not None:
             noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
 
+        self.diffusion._move_tensors(data.device)
+        self.model.to(data.device)
+
         losses, loss_dict = self.diffusion.p_losses(
             denoise_fn=self._denoise, data_start=data, t=t, noise=noises, condition=condition, condition_cross=condition_cross)
         assert losses.shape == t.shape == torch.Size([B])
@@ -774,12 +783,14 @@ class DiffusionPoint(nn.Module):
 
     def gen_samples(self, shape, device, condition=None, condition_cross=None, noise_fn=torch.randn,
                     clip_denoised=True, keep_running=False):
+        self.diffusion._move_tensors(device)
         return self.diffusion.p_sample_loop(self._denoise, shape=shape, device=device, condition=condition, condition_cross=condition_cross, noise_fn=noise_fn,
                                             clip_denoised=clip_denoised,
                                             keep_running=keep_running)
 
     def gen_sample_traj(self, shape, device, freq, condition=None, condition_cross=None, noise_fn=torch.randn,
                     clip_denoised=True,keep_running=False):
+        self.diffusion._move_tensors(device)
         return self.diffusion.p_sample_loop_trajectory(self._denoise, shape=shape, device=device, condition=condition, condition_cross=condition_cross, noise_fn=noise_fn, freq=freq,
                                                        clip_denoised=clip_denoised,
                                                        keep_running=keep_running)
@@ -787,18 +798,20 @@ class DiffusionPoint(nn.Module):
 
     def gen_samples_ddim(self, shape, device, condition=None, condition_cross=None, noise_fn=torch.randn,
                     clip_denoised=True, sampling_timesteps=50, ddim_sampling_eta=0., return_all_timesteps=False):
+        self.diffusion._move_tensors(device)
         return self.diffusion.ddim_sample_loop(self._denoise, shape=shape, device=device, condition=condition, condition_cross=condition_cross, noise_fn=noise_fn,
                                             clip_denoised=clip_denoised, sampling_timesteps=sampling_timesteps, ddim_sampling_eta=ddim_sampling_eta, return_all_timesteps=return_all_timesteps)
     
     def complete_samples(self, shape, device, condition=None, condition_cross=None, noise_fn=torch.randn,
                     clip_denoised=True, keep_running=False, partial_boxes=None):
+        self.diffusion._move_tensors(device)
         return self.diffusion.p_sample_loop_complete(self._denoise, shape=shape, device=device, condition=condition, condition_cross=condition_cross, noise_fn=noise_fn,
                                             clip_denoised=clip_denoised,
                                             keep_running=keep_running, partial_boxes=partial_boxes)
 
     def arrange_samples(self, shape, device, condition=None, condition_cross=None, noise_fn=torch.randn,
                     clip_denoised=True, keep_running=False, input_boxes=None):
-        
+        self.diffusion._move_tensors(device)
         return self.diffusion.p_sample_loop_arrange(self._denoise, shape=shape, device=device, condition=condition, condition_cross=condition_cross, noise_fn=noise_fn,
                                             clip_denoised=clip_denoised,
                                             keep_running=keep_running, input_boxes=input_boxes)
