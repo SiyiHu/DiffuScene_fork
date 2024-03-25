@@ -15,20 +15,21 @@ network:
     # denoising network
     net_type: "unet1d"
 
-    # concate squarewish layer
-    point_dim: 62 #29
-    latent_dim: 0
-    room_mask_condition: false # not use room_mask 
+    # input data size (B, sample_num_points, point_dim)
+    point_dim: 62   # 22 + 8 + 32
     sample_num_points: 12 # max_length 
-
-    objectness_dim: 0
     class_dim: 22
+    objectness_dim: 0
     angle_dim: 2
     objfeat_dim: 32 #64
+    
+    # room_mask condition 
+    room_mask_condition: false
+    latent_dim: 0
 
     # class condition
-    learnable_embedding: true
     instance_condition: true
+    learnable_embedding: true
     instance_emb_dim: 128
 
     # diffusion config
@@ -49,8 +50,8 @@ network:
         dim: 512
         dim_mults: [1, 1, 1, 1]
         channels: 62 
-        objectness_dim: 0
         class_dim: 22
+        objectness_dim: 0
         angle_dim: 2
         objfeat_dim: 32
         context_dim: 0

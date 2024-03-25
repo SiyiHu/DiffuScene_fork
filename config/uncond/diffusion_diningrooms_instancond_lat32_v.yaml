@@ -17,19 +17,20 @@ network:
     net_type: "unet1d"
 
     # concate squarewish layer
-    point_dim: 65 
-    latent_dim: 0
-    room_mask_condition: false # not use room_mask 
+    point_dim: 65   # 25 + 8 + 32
     sample_num_points: 21 # max_length 
-
+    class_dim: 25
     objectness_dim: 0
-    class_dim: 25  #24+1
     angle_dim: 2 
     objfeat_dim: 32 #64
 
+    # room_mask condition 
+    room_mask_condition: false
+    latent_dim: 0
+
     # class condition
-    learnable_embedding: true
     instance_condition: true
+    learnable_embedding: true
     instance_emb_dim: 128
 
     # diffusion config
@@ -42,6 +43,7 @@ network:
         model_mean_type: 'v' #'eps'
         model_var_type: 'fixedsmall'
         loss_separate: true
+        # calculate iou loss
         loss_iou: true
         train_stats_file: "../output/3d_front_processed/diningrooms_objfeats_32_64/dataset_stats.txt"
 
@@ -50,14 +52,13 @@ network:
         dim: 512
         dim_mults: [1, 1, 1, 1]
         channels: 65 
-        objectness_dim: 0
         class_dim: 25
+        objectness_dim: 0
         angle_dim: 2
         objfeat_dim: 32
         context_dim: 0
         instanclass_dim: 128 
         seperate_all: true  
-        
 
 feature_extractor:
     name: "resnet18"
@@ -80,7 +81,6 @@ training:
     lr: 0.0002
     lr_step: 20000
     lr_decay: 0.5
-
 
 validation:
     splits: ["test"]
