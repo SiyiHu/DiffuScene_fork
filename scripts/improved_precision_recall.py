@@ -56,7 +56,7 @@ class IPR():
         self.num_samples = num_samples
         if model is None:
             print('loading vgg16 for improved precision and recall...', end='', flush=True)
-            self.vgg16 = models.vgg16(pretrained=True).cuda().eval()
+            self.vgg16 = models.vgg16(weights=None).cuda().eval()
             print('done')
         else:
             self.vgg16 = model
@@ -405,7 +405,7 @@ if __name__ == '__main__':
         ))
 
     print("Generating temporary a folder with test_real images...")
-    path_to_test_real = "/cluster/balrog/jtang/ATISS_exps/test_real/" # /tmp/test_real
+    path_to_test_real = "../output/tmp_precision/test_real/" # /tmp/test_real
     if not os.path.exists(path_to_test_real):
         os.makedirs(path_to_test_real)
         
@@ -416,7 +416,7 @@ if __name__ == '__main__':
     print('number of synthesized images :', len(test_real))
 
     print("Generating temporary a folder with test_fake images...")
-    path_to_test_fake = "/cluster/balrog/jtang/ATISS_exps/test_fake/" #/tmp/test_fake/
+    path_to_test_fake = "../output/tmp_precision/test_fake/" #/tmp/test_fake/
     if not os.path.exists(path_to_test_fake):
         os.makedirs(path_to_test_fake)
 
@@ -431,11 +431,11 @@ if __name__ == '__main__':
         shutil.copyfile(fi, "{}/{:05d}.png".format(path_to_test_fake, i))
 
     # Downsample points
-    path_to_test_real_sample = "/cluster/balrog/jtang/ATISS_exps/test_real_sample/" # /tmp/test_real
+    path_to_test_real_sample = "../output/tmp_precision/test_real_sample/" # /tmp/test_real
     if not os.path.exists(path_to_test_real_sample):
         os.makedirs(path_to_test_real_sample)
     
-    path_to_test_fake_sample = "/cluster/balrog/jtang/ATISS_exps/test_fake_sample/" #/tmp/test_fake/
+    path_to_test_fake_sample = "../output/tmp_precision/test_fake_sample/" #/tmp/test_fake/
     if not os.path.exists(path_to_test_fake_sample):
         os.makedirs(path_to_test_fake_sample)
     

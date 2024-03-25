@@ -24,7 +24,7 @@ class ResNet18(BaseFeatureExtractor):
         super(ResNet18, self).__init__()
         self._feature_size = feature_size
 
-        self._feature_extractor = models.resnet18(pretrained=False)
+        self._feature_extractor = models.resnet18(weights=None)
         if freeze_bn:
             FrozenBatchNorm2d.freeze(self._feature_extractor)
 
@@ -49,7 +49,7 @@ class AlexNet(BaseFeatureExtractor):
         super(AlexNet, self).__init__()
         self._feature_size = feature_size
 
-        self._feature_extractor = models.alexnet(pretrained=False)
+        self._feature_extractor = models.alexnet(weights=None)
         self._feature_extractor.features[0] = torch.nn.Conv2d(
             input_channels,
             64,
