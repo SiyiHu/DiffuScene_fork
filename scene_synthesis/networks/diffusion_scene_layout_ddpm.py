@@ -13,7 +13,7 @@ import clip
 
 class DiffusionSceneLayout_DDPM(Module):
 
-    def __init__(self, n_classes, feature_extractor, config):
+    def __init__(self, n_object_types, feature_extractor, config):
         super().__init__()
 
         # TODO: Add the projection dimensions for the room features in the
@@ -67,7 +67,7 @@ class DiffusionSceneLayout_DDPM(Module):
             config = config,
             **config["diffusion_kwargs"]
         )
-        self.n_classes = n_classes
+        self.n_object_types = n_object_types
         self.config = config
         
         # read object property dimension
@@ -354,7 +354,7 @@ class DiffusionSceneLayout_DDPM(Module):
         of [0, N_i, ?] dimensions for each object feature."""
         # Separate features to dictionaries
         object_max, object_max_ind = torch.max(
-            samples[:, :, self.bbox_dim:self.bbox_dim+self.n_classes-2], 
+            samples[:, :, self.bbox_dim:self.bbox_dim+self.n_object_types], 
             dim=-1
         )
         samples_dict = {
@@ -364,7 +364,7 @@ class DiffusionSceneLayout_DDPM(Module):
             "angles": samples[:, :, self.translation_dim+self.size_dim:
                               self.bbox_dim].contiguous(),
             "class_labels": nn.functional.one_hot(
-                object_max_ind, num_classes=self.n_classes-2
+                object_max_ind, num_classes=self.n_object_types
             ),
             "is_empty": samples[:, :, self.bbox_dim+self.class_dim-1] > object_max,
         }
@@ -380,7 +380,7 @@ class DiffusionSceneLayout_DDPM(Module):
         for b in range(batch_size):
             # Initialize empty dict
             boxes = {
-                "class_labels": torch.zeros(1, 0, self.n_classes-2).to(device),
+                "class_labels": torch.zeros(1, 0, self.n_object_types).to(device),
                 "translations": torch.zeros(1, 0, self.translation_dim).to(device),
                 "sizes": torch.zeros(1, 0, self.size_dim).to(device),
                 "angles": torch.zeros(1, 0, self.angle_dim).to(device)
@@ -409,7 +409,7 @@ class DiffusionSceneLayout_DDPM(Module):
         #initilization
         boxes = {
             "objectness": torch.zeros(1, 0, 1, device=device),
-            "class_labels": torch.zeros(1, 0, self.n_classes-2, device=device),
+            "class_labels": torch.zeros(1, 0, self.n_object_types, device=device),
             "translations": torch.zeros(1, 0, self.translation_dim, device=device),
             "sizes": torch.zeros(1, 0, self.size_dim, device=device),
             "angles": torch.zeros(1, 0, self.angle_dim, device=device)
