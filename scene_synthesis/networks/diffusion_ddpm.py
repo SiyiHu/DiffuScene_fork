@@ -249,7 +249,7 @@ class GaussianDiffusion:
             self._extract(self.sqrt_one_minus_alphas_cumprod.to(x_t.device), t, x_t.shape) * v
         )
         
-    def model_predictions(self, denoise_fn, x_t, t, condition, condition_cross, x_self_cond = None, clip_x_start = False, rederive_pred_noise = False): 
+    def model_predictions(self, denoise_fn, x_t, t, condition, condition_cross, clip_x_start = False, rederive_pred_noise = False): 
         model_output = denoise_fn(x_t, t, condition, condition_cross) 
         maybe_clip = partial(torch.clamp, min = -1., max = 1.) if clip_x_start else identity
 
@@ -314,13 +314,9 @@ class GaussianDiffusion:
 
     def p_mean_variance(self, denoise_fn, data, t, condition, condition_cross, clip_denoised: bool, return_pred_xstart: bool):
 
-        preds = self.model_predictions(denoise_fn, data, t, condition, condition_cross, x_self_cond=None)
+        preds = self.model_predictions(denoise_fn, data, t, condition, condition_cross, clip_x_start=clip_denoised)
         x_recon = preds.pred_x_start
-
-        if clip_denoised:
-            x_recon.clamp_(-1., 1.)
-
-
+        
         if self.model_var_type in ['fixedsmall', 'fixedlarge']:
             # below: only log_variance is used in the KL computations
             model_variance, model_log_variance = {

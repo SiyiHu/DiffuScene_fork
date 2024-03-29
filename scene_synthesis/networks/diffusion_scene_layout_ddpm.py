@@ -230,7 +230,7 @@ class DiffusionSceneLayout_DDPM(Module):
                partial_boxes=None, input_boxes=None, ret_traj=False, ddim=False, clip_denoised=False, freq=40, batch_seeds=None, 
                 ):
         device = room_mask.device
-        noise = torch.randn((batch_size, num_points, point_dim))#, device=room_mask.device)
+        data_shape = (batch_size, num_points, point_dim)
 
         # get the latent feature of room_mask
         if self.room_mask_condition:
@@ -294,19 +294,19 @@ class DiffusionSceneLayout_DDPM(Module):
 
         if input_boxes is not None:
             print('scene arrangement sampling')
-            samples = self.diffusion.arrange_samples(noise.shape, room_mask.device, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised, input_boxes=input_boxes)
+            samples = self.diffusion.arrange_samples(data_shape, device, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised, input_boxes=input_boxes)
 
         elif partial_boxes is not None:
             print('scene completion sampling')
-            samples = self.diffusion.complete_samples(noise.shape, room_mask.device, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised, partial_boxes=partial_boxes)
+            samples = self.diffusion.complete_samples(data_shape, device, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised, partial_boxes=partial_boxes)
 
         else:
             print('unconditional / conditional generation sampling')
             # reverse sampling
             if ret_traj:
-                samples = self.diffusion.gen_sample_traj(noise.shape, room_mask.device, freq=freq, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised)
+                samples = self.diffusion.gen_sample_traj(data_shape, device, freq=freq, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised)
             else:
-                samples = self.diffusion.gen_samples(noise.shape, room_mask.device, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised)
+                samples = self.diffusion.gen_samples(data_shape, device, condition=condition, condition_cross=condition_cross, clip_denoised=clip_denoised)
             
         return samples
 
