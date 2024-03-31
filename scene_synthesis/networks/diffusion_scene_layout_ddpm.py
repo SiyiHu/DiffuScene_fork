@@ -13,8 +13,11 @@ import clip
 
 class DiffusionSceneLayout_DDPM(Module):
 
-    def __init__(self, n_object_types, feature_extractor, config):
+    def __init__(self, n_classes, feature_extractor, config):
         super().__init__()
+
+        self.n_object_types = n_classes - 2
+        self.config = config
 
         # TODO: Add the projection dimensions for the room features in the
         # config!!!
@@ -67,8 +70,6 @@ class DiffusionSceneLayout_DDPM(Module):
             config = config,
             **config["diffusion_kwargs"]
         )
-        self.n_object_types = n_object_types
-        self.config = config
         
         # read object property dimension
         self.objectness_dim = config.get("objectness_dim", 1)
@@ -78,6 +79,7 @@ class DiffusionSceneLayout_DDPM(Module):
         self.angle_dim = config.get("angle_dim", 1)
         self.bbox_dim = self.translation_dim + self.size_dim + self.angle_dim
         self.objfeat_dim = config.get("objfeat_dim", 0)
+        assert self.n_object_types == self.class_dim - 1
 
         # define class and instance embeddings
         self.learnable_embedding = config.get("learnable_embedding", False)
