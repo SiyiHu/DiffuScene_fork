@@ -321,8 +321,8 @@ class RotationAugmentation(DatasetDecoratorBase):
     def rotation_matrix_around_y(theta):
         R = np.zeros((3, 3))
         R[0, 0] = np.cos(theta)
-        R[0, 2] = -np.sin(theta)
-        R[2, 0] = np.sin(theta)
+        R[0, 2] = np.sin(theta)
+        R[2, 0] = -np.sin(theta)
         R[2, 2] = np.cos(theta)
         R[1, 1] = 1.
         return R
@@ -356,7 +356,7 @@ class RotationAugmentation(DatasetDecoratorBase):
         sample_params = self._dataset[idx]
         for k, v in sample_params.items():
             if k == "translations":
-                sample_params[k] = v.dot(R)
+                sample_params[k] = v @ R.T
             elif k == "angles":
                 angle_min, angle_max = self.bounds["angles"]
                 sample_params[k] = \
