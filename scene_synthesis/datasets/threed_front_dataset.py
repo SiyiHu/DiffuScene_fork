@@ -360,7 +360,7 @@ class RotationAugmentation(DatasetDecoratorBase):
             elif k == "angles":
                 angle_min, angle_max = self.bounds["angles"]
                 sample_params[k] = \
-                    (v + rot_angle - angle_min) % (2 * np.pi) + angle_min
+                    (v - rot_angle - angle_min) % (2 * np.pi) + angle_min
             elif k == "room_layout":
                 # Fix the ordering of the channels because it was previously
                 # changed
