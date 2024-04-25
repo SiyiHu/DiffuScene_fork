@@ -905,7 +905,7 @@ class Diffusion(DatasetDecoratorBase):
         sample_params_target = {}
         # Compute the target from the input
         for k, v in sample_params.items():
-            if k == "room_layout" or k == "length":
+            if k == "room_layout" or k == "length" or k =="fpbpn":
                 pass
 
             elif k == "relations" or k == "description" or k == "desc_emb":
