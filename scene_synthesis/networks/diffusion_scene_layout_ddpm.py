@@ -336,11 +336,11 @@ class DiffusionSceneLayout_DDPM(Module):
         return boxes_traj
     
     @torch.no_grad()
-    def complete_scene(self, room_mask, num_points, point_dim, partial_boxes, batch_size=1, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, device="cpu", keep_empty=False):
+    def complete_scene(self, room_mask, num_points, point_dim, partial_boxes, batch_size=1, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, out_device="cpu", keep_empty=False):
         
         samples = self.sample(room_mask, num_points, point_dim, batch_size, partial_boxes=partial_boxes, ret_traj=ret_traj, ddim=ddim, clip_denoised=clip_denoised, batch_seeds=batch_seeds)
 
-        return self.delete_empty_from_network_samples(samples, device=device, keep_empty=keep_empty)
+        return self.delete_empty_from_network_samples(samples, out_device)
     
     @torch.no_grad()
     def arrange_scene(self, room_mask, num_points, point_dim, input_boxes, batch_size=1, ret_traj=False, ddim=False, clip_denoised=False, batch_seeds=None, device="cpu", keep_empty=False):
