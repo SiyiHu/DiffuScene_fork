@@ -5,6 +5,33 @@ from tqdm import tqdm
 from scene_synthesis.datasets.threed_front_encoding import Diffusion
 
 
+def unpack_data(sample, network_config, num_partial=None):
+    if num_partial is None:
+        num_partial = network_config["partial_num_points"]
+    
+    class_labels = torch.from_numpy(sample["class_labels"])[None, :num_partial, :]
+    translations = torch.from_numpy(sample["translations"])[None, :num_partial, :]
+    sizes = torch.from_numpy(sample["sizes"])[None, :num_partial, :]
+    angles = torch.from_numpy(sample["angles"])[None, :num_partial, :]
+
+    partial_boxes = \
+        torch.cat([translations, sizes, angles, class_labels], dim=-1).contiguous()
+    
+    if network_config.get("objectness_dim", 0) > 0:
+        objectness = torch.from_numpy(sample["objectness"])[None, :num_partial, :]
+        partial_boxes = \
+            torch.cat([partial_boxes, objectness], dim=-1).contiguous() 
+    if network_config.get("objfeat_dim", 0) > 0:
+        if network_config["objfeat_dim"] == 32:
+            objfeats = torch.from_numpy(sample["objfeats_32"])[None, :num_partial, :]
+        else:
+            objfeats = torch.from_numpy(sample["objfeats"])[None, :num_partial, :]
+        partial_boxes = \
+            torch.cat([partial_boxes, objfeats], dim=-1).contiguous() 
+
+    return partial_boxes 
+
+
 def generate_layouts(network, encoded_dataset:Diffusion, num_syn_scenes, config,
                      clip_denoised, sampling_rule="random", batch_size=16, 
                      device="cpu"):
@@ -25,6 +52,8 @@ def generate_layouts(network, encoded_dataset:Diffusion, num_syn_scenes, config,
                              num_syn_scenes - len(sampled_indices)).tolist()
     else:
         raise NotImplemented
+    
+    scene_completion = config["network"].get("room_partial_condition", False)
         
     # Generate layouts
     network.to(device)
@@ -37,14 +66,30 @@ def generate_layouts(network, encoded_dataset:Diffusion, num_syn_scenes, config,
             encoded_dataset[ind]["room_layout"] for ind in scene_indices
         ], axis=0)).to(device)
         
-        bbox_params_list = network.generate_layout(
-            room_mask=room_mask.to(device),
-            num_points=config["network"]["sample_num_points"],
-            point_dim=config["network"]["point_dim"],
-            batch_size=len(scene_indices),
-            out_device="cpu",
-            clip_denoised=clip_denoised,
-        )
+        if scene_completion:
+            input_boxes = torch.cat([
+                unpack_data(encoded_dataset[ind], config["network"]) 
+                for ind in scene_indices
+            ], dim=0).to(device)
+                
+            bbox_params_list = network.complete_scene(
+                room_mask=room_mask,
+                num_points=config["network"]["sample_num_points"],
+                point_dim=config["network"]["point_dim"],
+                partial_boxes=input_boxes,
+                batch_size=len(scene_indices),
+                out_device="cpu",
+                clip_denoised=clip_denoised,
+            )
+        else:
+            bbox_params_list = network.generate_layout(
+                room_mask=room_mask,
+                num_points=config["network"]["sample_num_points"],
+                point_dim=config["network"]["point_dim"],
+                batch_size=len(scene_indices),
+                out_device="cpu",
+                clip_denoised=clip_denoised,
+            )
         
         for bbox_params_dict in bbox_params_list:
             boxes = encoded_dataset.post_process(bbox_params_dict)
