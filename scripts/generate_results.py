@@ -57,6 +57,12 @@ def main(argv):
         help="Number of scenes to be synthesized"
     )
     parser.add_argument(
+        "--batch_size",
+        default=128,
+        type=int,
+        help="Number of synthesized scene in each batch"
+    )
+    parser.add_argument(
         "--result_tag",
         default=None,
         help="Save results to a sub-directory if result_tag is provided"
@@ -107,8 +113,8 @@ def main(argv):
     if args.config_file is None:
         args.config_file = os.path.join(os.path.dirname(args.weight_file), "config.yaml")
     config = load_config(args.config_file)
-    if "_eval" not in config["data"]["encoding_type"]:
-        config["data"]["encoding_type"] += "_eval"
+    # if "_eval" not in config["data"]["encoding_type"]:
+    #     config["data"]["encoding_type"] += "_eval"
     if not os.path.exists(path_to_config) or \
         not os.path.samefile(args.config_file, path_to_config):
         shutil.copyfile(args.config_file, path_to_config)
@@ -147,7 +153,7 @@ def main(argv):
     # Generate final results
     sampled_indices, layout_list = \
         generate_layouts(network, encoded_dataset, args.n_syn_scenes, config, 
-                         args.clip_denoised, "random", 128, device)
+                         args.clip_denoised, "random", args.batch_size, device)
     
     threed_front_results = ThreedFrontResults(
         raw_train_dataset, raw_dataset, config, sampled_indices, layout_list

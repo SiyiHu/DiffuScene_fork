@@ -20,8 +20,7 @@ from scene_synthesis.datasets.threed_front import CachedThreedFront
 
 
 class ThreedFrontRenderDataset(object):
-    def __init__(self, dataset, 
-                 image_name="rendered_scene_notexture_256_nofloor.png"):
+    def __init__(self, dataset, image_name="rendered_scene_256.png"):
         self.dataset = dataset
         self.image_name = image_name
         print("Use {} as rendered scene image.".format(image_name))
@@ -58,6 +57,17 @@ def main(argv):
         "(default:../config/<room_type>_threed_front_splits.csv)"
     )
     parser.add_argument(
+        "--output_directory",
+        default="../output/tmp_fid",
+        help="Output directory to store real and fake renderings for comparison"
+        "(default: output/tmp_fid)"
+    )
+    parser.add_argument(
+        "--without_floor",
+        action="store_true",
+        help="if remove the floor plane"
+    )
+    parser.add_argument(
         "--compare_all",
         action="store_true",
         help="if compare all"
@@ -69,6 +79,10 @@ def main(argv):
     )
 
     args = parser.parse_args(argv)
+    image_name="rendered_scene_notexture_256{}.png"\
+        .format("_nofloor" if args.without_floor else "")
+    print("Use {} as rendered scene image.\n".format(image_name))
+
     # Set default path_to_annotations if not specified
     if args.path_to_annotations is None:
         for room_type in ["bedroom", "diningroom", "livingroom"]:
@@ -95,16 +109,23 @@ def main(argv):
         scene_ids = splits_builder.get_splits(["train", "val"])
     test_real = ThreedFrontRenderDataset(CachedThreedFront(
         args.path_to_real_renderings, config=config, scene_ids=scene_ids
-    ))
+    ), image_name=image_name)
 
-    path_to_test_real = "../output/fid_tmp/test_real/"
+    # Copy images to real and fake folders
+    path_to_test_real = os.path.join(args.output_directory, "test_real/")
+    if os.path.exists(path_to_test_real):
+        input("'{}' exits. Press any key to remove...".format(path_to_test_real))
+        os.system("rm -r %s"%path_to_test_real)
     print("Generating a temporary folder with test_real images:", path_to_test_real)
     os.makedirs(path_to_test_real)
     for i, di in enumerate(test_real):
         di.save("{}/{:05d}.png".format(path_to_test_real, i))
-    print('number of synthesized images :', len(test_real))
+    print("number of real images: {}\n".format(len(test_real)))
 
-    path_to_test_fake = "../output/fid_tmp/test_fake/"
+    path_to_test_fake = os.path.join(args.output_directory, "test_fake/")
+    if os.path.exists(path_to_test_fake):
+        input("'{}' exits. Press any key to remove...".format(path_to_test_fake))
+        os.system("rm -r %s"%path_to_test_fake)
     print("Generating a temporary folder with test_fake images:", path_to_test_fake)
     os.makedirs(path_to_test_fake)
     synthesized_images = [
@@ -112,17 +133,16 @@ def main(argv):
         for oi in os.listdir(args.path_to_synthesized_renderings)
         if oi.endswith(".png")
     ]
-    print('number of synthesized images :', len(synthesized_images))
-
     for i, fi in enumerate(synthesized_images):
         shutil.copyfile(fi, "{}/{:05d}.png".format(path_to_test_fake, i))
+    print("number of synthesized images: {}\n".format(len(synthesized_images)))
 
     # Compute the FID score
     fid_score = fid.compute_fid(path_to_test_real, path_to_test_fake, device=torch.device("cpu"))
-    print('fid score:', fid_score)
+    print("fid score: {}\n".format(fid_score))
     kid_score = fid.compute_kid(path_to_test_real, path_to_test_fake, device=torch.device("cpu"))
-    print('kid score:', kid_score)
-    
+    print("kid score: {}\n".format(kid_score))
+
     input("FID/KID score computed. Press any key to remove temporary image directories...")
     os.system('rm -r %s'%path_to_test_real)
     os.system('rm -r %s'%path_to_test_fake)
