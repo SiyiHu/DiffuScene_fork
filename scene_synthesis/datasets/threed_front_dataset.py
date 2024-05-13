@@ -639,7 +639,7 @@ class Add_Text(DatasetDecoratorBase):
         super().__init__(dataset)
         self.eval = eval
         self.max_sentences = max_sentences
-        self.glove = torchtext.vocab.GloVe(name="6B", dim=50, cache='/cluster/balrog/jtang/DiffuScene/.vector_cache') 
+        # self.glove = torchtext.vocab.GloVe(name="6B", dim=50, cache='/cluster/balrog/jtang/DiffuScene/.vector_cache') 
         self.max_token_length = max_token_length
 
     def __getitem__(self, idx):
@@ -652,7 +652,7 @@ class Add_Text(DatasetDecoratorBase):
         # Add description
         sample = self.add_description(sample)
         
-        sample = self.add_glove_embeddings(sample)
+        # sample = self.add_glove_embeddings(sample)
         return sample
 
     def add_relation(self, sample):
@@ -800,16 +800,15 @@ class Add_Text(DatasetDecoratorBase):
                 sentences.append(s)
 
         # set back into the sample
-        sample['description'] = sentences
+        sentence = ''.join(sentences[:self.max_sentences])
+        sample['description'] = sentence
 
         # delete sample['relations']
         del sample['relations']
         return sample
 
     def add_glove_embeddings(self, sample):
-        sentence = ''.join(sample['description'][:self.max_sentences])
-        sample['description'] = sentence
-        tokens = list(word_tokenize(sentence))
+        tokens = list(word_tokenize(sample['description']))
         # pad to maximum length
         tokens += ['<pad>'] * (self.max_token_length - len(tokens))
 
