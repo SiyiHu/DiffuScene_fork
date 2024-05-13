@@ -642,37 +642,42 @@ class Add_Text(DatasetDecoratorBase):
         # self.glove = torchtext.vocab.GloVe(name="6B", dim=50, cache='/cluster/balrog/jtang/DiffuScene/.vector_cache') 
         self.max_token_length = max_token_length
 
+        # store a copy of all relations in each scene
+        self._data_relations = [
+            self.compute_relation(sample) for sample in self._dataset
+        ]
+
     def __getitem__(self, idx):
         sample = self._dataset[idx]
 
-
-        # Add relationship between objects
-        sample = self.add_relation(sample)
-
-        # Add description
-        sample = self.add_description(sample)
+        # Sample description
+        relations = self._data_relations[idx]
+        sample = self.add_description(sample, relations)
         
         # sample = self.add_glove_embeddings(sample)
         return sample
 
-    def add_relation(self, sample):
-        '''
-            Add relations to sample['relations']
-        '''
+    def compute_relation(self, sample):
+        '''compute relations in sample scene'''
         relations = []
         num_objs = len(sample['translations'])
 
         for ndx in range(num_objs):
             this_box_trans = sample['translations'][ndx, :]
             this_box_sizes = sample['sizes'][ndx, :]
-            this_box = {  'min': list(this_box_trans-this_box_sizes), 'max': list(this_box_trans+this_box_sizes)  }
+            this_box = {
+                'min': list(this_box_trans-this_box_sizes),
+                'max': list(this_box_trans+this_box_sizes)
+            }
             
             # only backward relations
-            choices = [other for other in range(num_objs) if other < ndx]
-            for other_ndx in choices:
+            for other_ndx in range(ndx):
                 prev_box_trans = sample['translations'][other_ndx, :]
                 prev_box_sizes = sample['sizes'][other_ndx, :]
-                prev_box = {  'min': list(prev_box_trans-prev_box_sizes), 'max': list(prev_box_trans+prev_box_sizes) }
+                prev_box = { 
+                    'min': list(prev_box_trans-prev_box_sizes),
+                    'max': list(prev_box_trans+prev_box_sizes)
+                }
                 box1 = dict_bbox_to_vec(this_box)
                 box2 = dict_bbox_to_vec(prev_box)
 
@@ -681,11 +686,9 @@ class Add_Text(DatasetDecoratorBase):
                     relation = (ndx, relation_str, other_ndx, distance)
                     relations.append(relation)
             
-        sample['relations'] = relations
+        return relations
 
-        return sample
-
-    def add_description(self, sample):
+    def add_description(self, sample, relations):
         '''
             Add text descriptions to each scene
             sample['description'] = str is a sentence
@@ -695,7 +698,9 @@ class Add_Text(DatasetDecoratorBase):
         # clean object names once
         classes = self.class_labels
         class_index = sample['class_labels'].argmax(-1)
-        obj_names = list(map(clean_obj_name, [classes[ind] for ind in class_index ] ))
+        obj_names = list(map(
+            clean_obj_name, [classes[ind] for ind in class_index ]
+        ))
         # objects that can be referred to
         refs = []
         # TODO: handle commas, use "and"
@@ -745,10 +750,10 @@ class Add_Text(DatasetDecoratorBase):
                 random_num = random.random() 
             if random_num > prob_thresh:
                 # possible backward references for this object
-                possible_relations = [r for r in sample['relations'] \
-                                        if r[0] == ndx \
-                                        and r[2] in refs \
-                                        and r[3] < 1.5]
+                possible_relations = [
+                    r for r in relations
+                    if r[0] == ndx and r[2] in refs and r[3] < 1.5
+                ]
                 if len(possible_relations) == 0:
                     continue
                 # now future objects can refer to this object
@@ -803,8 +808,6 @@ class Add_Text(DatasetDecoratorBase):
         sentence = ''.join(sentences[:self.max_sentences])
         sample['description'] = sentence
 
-        # delete sample['relations']
-        del sample['relations']
         return sample
 
     def add_glove_embeddings(self, sample):
