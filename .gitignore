@@ -16,3 +16,9 @@ build/*
 output/*
 scripts/wandb/*
 wandb/*
+
+# pretrained bert model
+scripts/bert-base-cased/*
+
+# log
+train_network.log-*

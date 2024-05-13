@@ -33,7 +33,8 @@ class DiffusionSceneLayout_DDPM(Module):
                 self.feature_extractor.feature_size, config["latent_dim"]
             )
             print('use room mask as condition')
-        elif self.text_condition:
+        
+        if self.text_condition:
             text_embed_dim = config.get("text_embed_dim", 512)
 
             if self.text_glove_embedding:
@@ -47,15 +48,15 @@ class DiffusionSceneLayout_DDPM(Module):
                     p.requires_grad = False
                 print('use text as condition, and pretrained clip embedding')
             else:
-                self.tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
-                self.bertmodel = BertModel.from_pretrained("bert-base-cased")
+                self.tokenizer = BertTokenizer.from_pretrained("./bert-base-cased", local_files_only=True)
+                self.bertmodel = BertModel.from_pretrained("./bert-base-cased", local_files_only=True)
 
                 for p in self.bertmodel.parameters():
                     p.requires_grad = False
                 self.fc_text_f = nn.Linear(768, text_embed_dim)
                 print('use text as condition, and pretrained bert model')
 
-        else:
+        if not self.room_mask_condition and not self.text_condition:
             print('NOT use room and text as condition')
 
         # define the denoising network
