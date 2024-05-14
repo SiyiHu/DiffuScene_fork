@@ -40,6 +40,12 @@ def main(argv):
         "(default: config.yaml in the model directory)"
     )
     parser.add_argument(
+        "--n_known_objects",
+        default=0,
+        type=int,
+        help="Number of existing objects for scene completion task"
+    )
+    parser.add_argument(
         "--clip_denoised",
         action="store_true",
         help="if clip_denoised"
@@ -151,9 +157,10 @@ def main(argv):
     network.eval()
 
     # Generate final results
-    sampled_indices, layout_list = \
-        generate_layouts(network, encoded_dataset, args.n_syn_scenes, config, 
-                         args.clip_denoised, "random", args.batch_size, device)
+    sampled_indices, layout_list = generate_layouts(
+        network, encoded_dataset, args.n_syn_scenes, config, args.n_known_objects,
+        args.clip_denoised, "random", args.batch_size, device
+    )
     
     threed_front_results = ThreedFrontResults(
         raw_train_dataset, raw_dataset, config, sampled_indices, layout_list
